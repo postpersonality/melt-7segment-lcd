@@ -1,5 +1,7 @@
 #include "Melt7SegLcd.h"
-#define CHAR_DIFF_TRESHOLD 3
+// If distance between the changed chars is equals or greater then begin a new transmission
+// As it would be cheaper than sending unchanged chars
+#define DIFF_LEN_TRESHOLD 3
 
 Melt7SegLcd::Melt7SegLcd(uint8_t i2cAddr, uint8_t displayLen, CharMapper *charMapper) {
   this->i2cAddr = i2cAddr;
@@ -10,14 +12,13 @@ Melt7SegLcd::Melt7SegLcd(uint8_t i2cAddr, uint8_t displayLen, CharMapper *charMa
   this->buffer1 = malloc(displayLen);
   // The queue array contains pairs: offset, transmission length
   // This is used as transmission plan when sending the data partially
-  this->queue = malloc((displayLen / (CHAR_DIFF_TRESHOLD + 1) + 1) << 1);
+  this->queue = malloc((displayLen / (DIFF_LEN_TRESHOLD + 1) + 1) << 1);
   this->queueLen = 0;
   this->isLastDigitTouched = true;
   this->isWireTrasmitting = false;
 
-  for (uint8_t i = 0; i < displayLen; i++) {
-    this->buffer0[i] = 0;
-  }
+  memset(buffer0, 0, displayLen);
+  memset(buffer1, 0, displayLen);
 }
 
 void Melt7SegLcd::init() {
@@ -63,7 +64,7 @@ void Melt7SegLcd::prepareTransmissionPlan() {
 
     if (skipScanMode) {
       // store skips, a char to print
-      if (this->queueLen == 0 || scanCounter >= CHAR_DIFF_TRESHOLD) {
+      if (this->queueLen == 0 || scanCounter >= DIFF_LEN_TRESHOLD) {
         // initial skips or long skips
         this->queue[this->queueLen] = scanCounter;
         this->queueLen++;
@@ -153,6 +154,7 @@ void Melt7SegLcd::setString(char *str) {
 }
 
 void Melt7SegLcd::toggleActiveBuffer() {
+  memcpy(this->getDiffBuffer(), this->getBuffer(), this->displayLen);
   this->activeBuffer = this->activeBuffer ? 0 : 1;
 }
 
