@@ -52,40 +52,62 @@ static const uint8_t charMap[] PROGMEM = {
   B00000001, // '.'  46  [39] PERIOD
   B11110000, // '*'  42  [40] DEGREE
   B01100000, // '"'      [41] DBL QUOTE
-  B00010010  // '='      [42] EQUAL
+  B00010010, // '='      [42] EQUAL
+  B10000000  // '~'      [43] TILDE
 };
 
 uint8_t Melt7SegCharMapper::map(char chr) {
-  if (chr >= '0' && chr <= '9') {
-    return pgm_read_byte_near(charMap + chr - 48);
+  // Divide ASCII to zones of chars with binary search
+  if (chr < 'A') {
+    if (chr < '0') {
+      // Special chars #1
+      if (chr == ' ') {
+        return pgm_read_byte_near(charMap + 36);
+      }
+      if (chr == '-') {
+        return pgm_read_byte_near(charMap + 37);
+      }
+      if (chr == '*') {
+        return pgm_read_byte_near(charMap + 40);
+      }
+      if (chr == '"') {
+        return pgm_read_byte_near(charMap + 41);
+      }
+      if (chr == '.') {
+        return pgm_read_byte_near(charMap + 39);
+      }
+    } else {
+      if (chr <= '9') {
+        // Digits
+        return pgm_read_byte_near(charMap + chr - 48);
+      }
+      // Special chars #2
+      if (chr == '=') {
+        return pgm_read_byte_near(charMap + 42);
+      }
+    }   
+  } else {
+    if (chr < 'a') {
+      if (chr <= 'Z') {
+        // Capital letters
+        return pgm_read_byte_near(charMap + chr - 'A' + 10);
+      }
+      // Special chars #3
+      if (chr == '_') {
+        return pgm_read_byte_near(charMap + 38);
+      }
+    } else {
+      if (chr <= 'z') {
+        // Small letters
+        return pgm_read_byte_near(charMap + chr - 'a' + 10);
+      }
+      // Special chars #4
+      if (chr == '~') {
+        return pgm_read_byte_near(charMap + 43);
+      }
+    }
   }
-  if (chr >= 'A' && chr <= 'Z') {
-    return pgm_read_byte_near(charMap + chr - 'A' + 10);
-  }
-  if (chr >= 'a' && chr <= 'z') {
-    return pgm_read_byte_near(charMap + chr - 'a' + 10);
-  }
-  if (chr == ' ') {
-    return pgm_read_byte_near(charMap + 36);
-  }
-  if (chr == '-') {
-    return pgm_read_byte_near(charMap + 37);
-  }
-  if (chr == '_') {
-    return pgm_read_byte_near(charMap + 38);
-  }
-  if (chr == '.') {
-    return pgm_read_byte_near(charMap + 39);
-  }
-  if (chr == '*') {
-    return pgm_read_byte_near(charMap + 40);
-  }
-  if (chr == '"') {
-    return pgm_read_byte_near(charMap + 41);
-  }
-  if (chr == '=') {
-    return pgm_read_byte_near(charMap + 42);
-  }
+
   return pgm_read_byte_near(charMap + 36);
 }
 
