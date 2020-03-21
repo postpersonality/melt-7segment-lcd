@@ -1,4 +1,5 @@
 #include "Melt7SegLcd.h"
+#define CHAR_DIFF_TRESHOLD 3
 
 Melt7SegLcd::Melt7SegLcd(uint8_t i2cAddr, uint8_t displayLen, CharMapper *charMapper) {
   this->i2cAddr = i2cAddr;
@@ -7,6 +8,10 @@ Melt7SegLcd::Melt7SegLcd(uint8_t i2cAddr, uint8_t displayLen, CharMapper *charMa
   this->activeBuffer = 0;
   this->buffer0 = malloc(displayLen);
   this->buffer1 = malloc(displayLen);
+  // The queue array contains pairs: offset, transmission length
+  // This is used as transmission plan when sending the data partially
+  this->queue = malloc((displayLen / (CHAR_DIFF_TRESHOLD + 1) + 1) << 1);
+  this->queueLen = 0;
   this->isLastDigitTouched = true;
   this->isWireTrasmitting = false;
 
@@ -30,12 +35,23 @@ void Melt7SegLcd::init() {
 }
 
 void Melt7SegLcd::show() {
+  this->prepareTransmissionPlan();
+  this->transmit();
+}
+
+void Melt7SegLcd::showAll() {
+  this->queueLen = 2;
+  this->queue[0] = 0;
+  this->queue[1] = this->displayLen;
+  this->transmit();
+}
+
+void Melt7SegLcd::prepareTransmissionPlan() {
   byte *diffBuffer = this->getDiffBuffer();
   byte *buffer = this->getBuffer();
-  byte queue[] = { 0, 0, 0, 0, 0, 0 }; // {skip, send, ...}
-  byte queueLen = 0;
   byte scanCounter = 0;
   boolean skipScanMode = true;
+  this->queueLen = 0;
 
   for (byte i = 0; i < this->displayLen; i++) {
     if (skipScanMode && *diffBuffer == *buffer || !skipScanMode && *diffBuffer != *buffer) {
@@ -47,19 +63,20 @@ void Melt7SegLcd::show() {
 
     if (skipScanMode) {
       // store skips, a char to print
-      if (queueLen == 0 || scanCounter >= 3) {
+      if (this->queueLen == 0 || scanCounter >= CHAR_DIFF_TRESHOLD) {
         // initial skips or long skips
-        queue[queueLen] = scanCounter;
-        queueLen++;
+        this->queue[this->queueLen] = scanCounter;
+        this->queueLen++;
+        this->queue[this->queueLen] = 0; // Clear previous plan value
       } else {
         // merge the skips
-        queueLen--;
-        queue[queueLen] += scanCounter;
+        this->queueLen--;
+        this->queue[this->queueLen] += scanCounter;
       }
     } else {
       // store prints, a char to skip
-      queue[queueLen] += scanCounter;
-      queueLen++;
+      this->queue[this->queueLen] += scanCounter;
+      this->queueLen++;
     }
 
     // Toggle mode
@@ -70,16 +87,16 @@ void Melt7SegLcd::show() {
   }
 
   if (!skipScanMode) {
-    queue[queueLen] += scanCounter;
+    this->queue[this->queueLen] += scanCounter;
   }
-  
-  bool isLastDigitWillBeTouched = scanCounter > 0 && !skipScanMode;
+};
 
-  scanCounter = 0;
-  buffer = this->getBuffer();
+void Melt7SegLcd::transmit() {
+  byte *buffer = this->getBuffer();
+  byte scanCounter = 0;
   
-  for (byte i = 0; i < queueLen; i += 2) {
-    byte submitLen = queue[i + 1];
+  for (byte i = 0; i < this->queueLen; i += 2) {
+    byte submitLen = this->queue[i + 1]; // queue[i + 1] is transmission length
     if (submitLen == 0) {
       break;
     }
@@ -89,12 +106,14 @@ void Melt7SegLcd::show() {
       this->isWireTrasmitting = true;
     }
     if (this->isLastDigitTouched) {
+      // This is needed only if we've touched last digit previously
+      // Because PCF8576 automatically selects next device on last digit write
       Wire.write(B11100000); // Command: DEVICE SELECT
       this->isLastDigitTouched = false;
     }
 
-    scanCounter += queue[i];
-    Wire.write(scanCounter << 2); // Смещение стартового знака = (N знака * 4)
+    scanCounter += this->queue[i]; // queue[i] is offset
+    Wire.write(scanCounter << 2); // The digit offset is digit offset multiplied by 4
     
     buffer += scanCounter;
     Wire.write(buffer, submitLen);
@@ -107,30 +126,10 @@ void Melt7SegLcd::show() {
     }
   }
 
-  if (scanCounter) {
-    this->isLastDigitTouched = isLastDigitWillBeTouched;
+  if (scanCounter >= this->displayLen) {
+    this->isLastDigitTouched = true;
   }
 
-  this->toggleActiveBuffer();
-}
-
-void Melt7SegLcd::showAll() {
-  if (!this->isWireTrasmitting) {
-    Wire.beginTransmission(this->i2cAddr);
-    this->isWireTrasmitting = true;
-  }
-
-  if (this->isLastDigitTouched) {
-    Wire.write(B11100000); // Command: DEVICE SELECT
-  }
-
-  byte *buffer = this->getBuffer();
-  Wire.write(0);
-  Wire.write(buffer, this->displayLen);
-
-  Wire.endTransmission();
-  this->isWireTrasmitting = false;
-  this->isLastDigitTouched = true;
   this->toggleActiveBuffer();
 }
 

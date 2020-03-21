@@ -19,6 +19,8 @@ class Melt7SegLcd {
     uint8_t activeBuffer;
     uint8_t *buffer0;
     uint8_t *buffer1;
+    uint8_t *queue;
+    uint8_t queueLen;
     bool isLastDigitTouched;
     bool isWireTrasmitting;
     CharMapper *charMapper;
@@ -26,6 +28,8 @@ class Melt7SegLcd {
     void toggleActiveBuffer();
     uint8_t *getBuffer();
     uint8_t *getDiffBuffer();
+    void prepareTransmissionPlan();
+    void transmit();
 };
 
 #endif
