@@ -9,7 +9,7 @@
 //  3   2
 //   111  00
 
-static const uint8_t charMap[] = {
+static const uint8_t charMap[] PROGMEM = {
   B11101110, // "0"  48
   B01000100, // "1"  49
   B11011010, // "2"  50  Same as 'Z'
@@ -57,38 +57,38 @@ static const uint8_t charMap[] = {
 
 uint8_t Melt7SegCharMapper::map(char chr) {
   if (chr >= '0' && chr <= '9') {
-    return charMap[chr - 48];
+    return pgm_read_byte_near(charMap + chr - 48);
   }
   if (chr >= 'A' && chr <= 'Z') {
-    return charMap[chr - 'A' + 10];
+    return pgm_read_byte_near(charMap + chr - 'A' + 10);
   }
   if (chr >= 'a' && chr <= 'z') {
-    return charMap[chr - 'a' + 10];
+    return pgm_read_byte_near(charMap + chr - 'a' + 10);
   }
   if (chr == ' ') {
-    return charMap[36];
+    return pgm_read_byte_near(charMap + 36);
   }
   if (chr == '-') {
-    return charMap[37];
+    return pgm_read_byte_near(charMap + 37);
   }
   if (chr == '_') {
-    return charMap[38];
+    return pgm_read_byte_near(charMap + 38);
   }
   if (chr == '.') {
-    return charMap[39];
+    return pgm_read_byte_near(charMap + 39);
   }
   if (chr == '*') {
-    return charMap[40];
+    return pgm_read_byte_near(charMap + 40);
   }
   if (chr == '"') {
-    return charMap[41];
+    return pgm_read_byte_near(charMap + 41);
   }
   if (chr == '=') {
-    return charMap[42];
+    return pgm_read_byte_near(charMap + 42);
   }
-  return charMap[36];
+  return pgm_read_byte_near(charMap + 36);
 }
 
 uint8_t Melt7SegCharMapper::addDot(char chr) {
-  return chr | 1;
+  return chr | B00000001;
 }
